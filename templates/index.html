@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>🚀 NVIDIA GPU Monitor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      background: #f0f2f5;
+      padding: 20px;
+      color: #333;
+    }
+
+    .main-wrapper {
+      max-width: 95%;
+      margin: 0 auto;
+      display: flex;
+      gap: 20px;
+    }
+
+    .left-panel {
+      flex: 2;
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 40px);
+    }
+
+    .right-panel {
+      flex: 1;
+      min-width: 300px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      height: calc(100vh - 40px);
+    }
+
+    .disk-section {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 12px;
+      padding: 15px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1);
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .task-queue-section {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 12px;
+      padding: 15px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1);
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .disk-section::before,
+    .task-queue-section::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-radius: 12px;
+      padding: 2px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.1));
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    .disk-section h2,
+    .task-queue-section h2 {
+      margin-top: 0;
+      margin-bottom: 15px;
+      font-size: 20px;
+      color: #0057a3;
+      flex-shrink: 0;
+    }
+
+    #task-queue-list {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+    }
+
+    .task-item {
+      background: rgba(255, 255, 255, 0.8);
+      border: 1px solid rgba(0, 87, 163, 0.2);
+      border-radius: 8px;
+      margin-bottom: 10px;
+      padding: 15px;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .task-item:hover {
+      background: rgba(255, 255, 255, 0.95);
+      border-color: rgba(0, 87, 163, 0.4);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .task-content {
+      display: flex;
+      align-items: flex-start;
+      gap: 15px;
+    }
+
+    .task-order {
+      color: #0057a3;
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      letter-spacing: 0.02em;
+      min-width: 30px;
+    }
+
+    .task-details {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .task-command {
+      font-family: 'Courier New', monospace;
+      background: rgba(0, 87, 163, 0.1);
+      padding: 8px 10px;
+      border-radius: 4px;
+      margin-bottom: 5px;
+      border-left: 3px solid #0057a3;
+      overflow-x: auto;
+      overflow-y: auto;
+      max-height: 200px;
+      position: relative;
+      display: flex;
+      max-width: 100%;
+    }
+
+    .task-command-content {
+      display: flex;
+      width: 100%;
+      min-width: 0;
+      align-items: flex-start;
+    }
+
+    .task-command-lines {
+      background: rgba(240, 240, 240, 0.8);
+      padding: 0 6px;
+      font-size: 12px;
+      color: #666;
+      border-right: 1px solid rgba(0, 87, 163, 0.2);
+      min-width: 30px;
+      text-align: right;
+      user-select: none;
+      white-space: pre;
+      flex-shrink: 0;
+      line-height: 1.4;
+      font-family: 'Courier New', monospace;
+    }
+
+    .task-command-text {
+      padding-left: 8px;
+      flex: 1;
+      min-width: 0;
+      overflow-x: auto;
+      white-space: pre;
+      line-height: 1.4;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+
+    /* 自定義滾動條樣式 */
+    .task-command::-webkit-scrollbar,
+    .task-command-text::-webkit-scrollbar {
+      height: 6px;
+      width: 6px;
+    }
+
+    .task-command::-webkit-scrollbar-track,
+    .task-command-text::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 3px;
+    }
+
+    .task-command::-webkit-scrollbar-thumb,
+    .task-command-text::-webkit-scrollbar-thumb {
+      background: rgba(0, 87, 163, 0.5);
+      border-radius: 3px;
+    }
+
+    .task-command::-webkit-scrollbar-thumb:hover,
+    .task-command-text::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 87, 163, 0.7);
+    }
+
+    /* 滾動條角落樣式 */
+    .task-command::-webkit-scrollbar-corner,
+    .task-command-text::-webkit-scrollbar-corner {
+      background: rgba(0, 0, 0, 0.1);
+    }
+
+    .task-gpu {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 3px;
+      font-weight: bold;
+    }
+
+    .task-time {
+      color: #999;
+      font-size: 12px;
+    }
+
+    .task-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+
+    .task-actions button {
+      padding: 5px 8px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s ease;
+      min-width: 30px;
+    }
+
+    .move-up-btn, .move-down-btn {
+      background: #e3f2fd;
+      color: #0057a3;
+      font-weight: bold;
+    }
+
+    .move-up-btn:hover, .move-down-btn:hover {
+      background: #bbdefb;
+    }
+
+    .move-up-btn:disabled, .move-down-btn:disabled {
+      background: #f5f5f5;
+      color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .delete-btn {
+      background: #ffebee;
+      color: #d32f2f;
+    }
+
+    .delete-btn:hover {
+      background: #ffcdd2;
+    }
+
+    .task-input-section {
+      flex-shrink: 0;
+      margin-bottom: 15px;
+    }
+
+    .input-row {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-bottom: 10px;
+    }
+
+    .command-input-container {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .controls-row {
+      display: flex;
+      gap: 15px;
+      align-items: flex-end;
+    }
+
+    .gpu-select-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 120px;
+    }
+
+    .add-task-container {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+
+    .command-input-container label,
+    .gpu-select-container label {
+      font-size: 14px;
+      font-weight: bold;
+      color: #0057a3;
+      margin-bottom: 5px;
+    }
+
+    .command-input-wrapper {
+      position: relative;
+      display: flex;
+      border: 2px solid rgba(0, 87, 163, 0.2);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      transition: border-color 0.3s ease;
+      overflow: hidden;
+      min-height: 60px; /* 最小高度約 3 行 */
+    }
+
+    .command-input-wrapper:focus-within {
+      border-color: #0057a3;
+      box-shadow: 0 0 0 3px rgba(0, 87, 163, 0.1);
+    }
+
+    .line-numbers {
+      background: rgba(240, 240, 240, 0.8);
+      padding: 8px 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 20px;
+      color: #666;
+      border-right: 1px solid rgba(0, 87, 163, 0.1);
+      min-width: 30px;
+      text-align: right;
+      user-select: none;
+      white-space: pre;
+      overflow: hidden;
+      min-height: 44px; /* 最小高度約 2 行 */
+    }
+
+    #command-input {
+      padding: 8px;
+      border: none;
+      font-size: 14px;
+      font-family: 'Courier New', monospace;
+      background: transparent;
+      resize: vertical;
+      min-height: 44px; /* 最小高度約 2 行 */
+      max-height: 300px; /* 最大高度限制 */
+      flex: 1;
+      line-height: 20px;
+      outline: none;
+      overflow-y: auto;
+      overflow-x: auto;
+      white-space: nowrap;
+      word-wrap: normal;
+    }
+
+    .custom-select {
+      position: relative;
+      width: 100%;
+    }
+
+    .select-display {
+      padding: 8px;
+      border: 2px solid rgba(0, 87, 163, 0.2);
+      border-radius: 8px;
+      font-size: 14px;
+      background: rgba(255, 255, 255, 0.9);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: border-color 0.3s ease;
+      min-height: 20px;
+    }
+
+    .select-display:hover {
+      border-color: rgba(0, 87, 163, 0.4);
+    }
+
+    .select-display.active {
+      border-color: #0057a3;
+      box-shadow: 0 0 0 3px rgba(0, 87, 163, 0.1);
+    }
+
+    .selected-text {
+      flex: 1;
+      color: #333;
+    }
+
+    .selected-text.placeholder {
+      color: #999;
+    }
+
+    .dropdown-arrow {
+      color: #666;
+      transition: transform 0.3s ease;
+      font-size: 12px;
+    }
+
+    .dropdown-arrow.rotated {
+      transform: rotate(180deg);
+    }
+
+    .select-options {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 2px solid rgba(0, 87, 163, 0.2);
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 1000;
+      display: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .select-options.open {
+      display: block;
+    }
+
+    .option {
+      padding: 10px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+      user-select: none;
+      background-color: rgba(255, 255, 255, 0.8);
+      border-radius: 6px;
+      margin: 2px;
+    }
+
+    .option:hover {
+      background-color: rgba(0, 87, 163, 0.1);
+    }
+
+    .option.selected {
+      background-color: rgba(0, 87, 163, 0.8);
+      color: white;
+    }
+
+    .option.selected:hover {
+      background-color: rgba(0, 87, 163, 0.9);
+    }
+
+    .option input[type="checkbox"] {
+      display: none; /* 完全隱藏 checkbox */
+    }
+
+    .option label {
+      margin: 0;
+      cursor: pointer;
+      font-size: 14px;
+      color: inherit;
+      font-weight: normal;
+      pointer-events: none;
+      text-align: center;
+      width: 100%;
+    }
+
+    #add-task-btn {
+      background: linear-gradient(135deg, #0057a3, #0066cc);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(0, 87, 163, 0.2);
+      min-width: 120px;
+    }
+
+    #add-task-btn:hover {
+      background: linear-gradient(135deg, #004a92, #0057a3);
+      box-shadow: 0 6px 16px rgba(0, 87, 163, 0.3);
+      transform: translateY(-1px);
+    }
+
+    #add-task-btn:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 8px rgba(0, 87, 163, 0.2);
+    }
+
+    .disk-card {
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 8px;
+      padding: 6px;
+      margin-bottom: 6px;
+      border: 1.5px solid rgba(255, 255, 255, 0.4);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+      position: relative;
+    }
+
+    .disk-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-radius: 8px;
+      padding: 1.5px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.1));
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    .disk-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .disk-name {
+      font-weight: bold;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .disk-percentage {
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .disk-bar {
+      background-color: #e0e0e0;
+      border-radius: 8px;
+      height: 14px;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 3px;
+    }
+
+    .disk-fill {
+      height: 100%;
+      border-radius: 8px;
+      transition: width 0.3s ease;
+    }
+
+    .disk-fill.low {
+      background: linear-gradient(to right, #4caf50, #8bc34a);
+    }
+
+    .disk-fill.medium {
+      background: linear-gradient(to right, #ff9800, #ffc107);
+    }
+
+    .disk-fill.high {
+      background: linear-gradient(to right, #f44336, #e91e63);
+    }
+
+    .disk-info {
+      font-size: 12px;
+      color: #666;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+      font-size: 26px;
+      font-weight: bold;
+    }
+
+    .gpu-section {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 12px;
+      padding: 15px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1);
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .gpu-section::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-radius: 12px;
+      padding: 2px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.1));
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    .gpu-section h2 {
+      margin-top: 0;
+      margin-bottom: 15px;
+      font-size: 20px;
+      color: #0057a3;
+    }
+
+    .gpu-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .gpu-card {
+      padding: 10px;
+      border-radius: 12px;
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      border: 1.5px solid rgba(255, 255, 255, 0.3);
+      position: relative;
+    }
+
+    .gpu-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-radius: 12px;
+      padding: 1.5px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.1));
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    .gpu-card.used {
+      background: linear-gradient(135deg, rgba(255, 205, 210, 0.7), rgba(255, 138, 128, 0.6));
+      box-shadow: 0 10px 25px rgba(244, 67, 54, 0.2), 0 4px 10px rgba(244, 67, 54, 0.15);
+    }
+
+    .gpu-card.idle {
+      background: linear-gradient(135deg, rgba(200, 230, 201, 0.7), rgba(129, 199, 132, 0.6));
+      box-shadow: 0 10px 25px rgba(76, 175, 80, 0.2), 0 4px 10px rgba(76, 175, 80, 0.15);
+    }
+
+    .gpu-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .gpu-title {
+      font-size: 18px;
+      font-weight: bold;
+      color: #0057a3;
+      min-width: 70px;
+    }
+
+    .bar-group {
+      display: flex;
+      flex: 1;
+      gap: 12px;
+    }
+
+    .bar-container {
+      background-color: #e0e0e0;
+      border-radius: 15px;
+      height: 30px;
+      position: relative;
+      flex: 1;
+      min-width: 220px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-right: 30px;
+      border: 2px solid rgba(0, 0, 0, 0.1);
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .bar {
+      height: 100%;
+      padding-left: 10px;
+      font-size: 14px;
+      font-weight: bold;
+      color: black;
+      border-radius: 15px;
+      white-space: nowrap;
+      overflow: visible;
+      display: flex;
+      align-items: center;
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      background-clip: padding-box;
+      z-index: 1;
+    }
+
+    .bar-text {
+      position: relative;
+      z-index: 2;
+      margin-right: auto;
+      padding-left: 10px;
+      font-size: 14px;
+      font-weight: bold;
+      color: black;
+      white-space: nowrap;
+      overflow: visible;
+    }
+
+    .bar-icon-wrapper {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 3;
+      pointer-events: none;
+      font-size: 18px;
+    }
+
+    .util-bar {
+      background: linear-gradient(to right, #fbc2eb, #f9a5a4);
+    }
+
+    .mem-bar {
+      background: linear-gradient(to right, #b0e0ff, #a6c8ff);
+    }
+
+    .process-section {
+      margin-top: 10px;
+      flex: 0 1 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      max-height: calc(100vh - 300px);
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 12px;
+      padding: 15px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1);
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      position: relative;
+    }
+
+    .process-section::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-radius: 12px;
+      padding: 2px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.1));
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    .process-section h2 {
+      margin-top: 0;
+      margin-bottom: 15px;
+      font-size: 20px;
+      color: #0057a3;
+      flex-shrink: 0;
+    }
+
+    .table-container {
+      flex: 0 1 auto;
+      overflow-y: auto;
+      max-height: 400px;
+      background: rgba(255, 255, 255, 0.7);
+      border-radius: 8px;
+      box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      margin-top: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: transparent;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 0;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+    }
+
+    th {
+      background-color: #f8f9fa;
+      text-align: left;
+      font-weight: bold;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    @media (max-width: 800px) {
+      .main-wrapper {
+        max-width: 100%;
+        flex-direction: column;
+      }
+
+      .left-panel {
+        height: auto;
+      }
+
+      .right-panel {
+        min-width: unset;
+        height: auto;
+        gap: 15px;
+      }
+
+      .gpu-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .bar-group {
+        flex-direction: column;
+        width: 100%;
+      }
+
+      .bar-container {
+        min-width: unset;
+        width: 100%;
+      }
+
+      .process-section {
+        min-height: 300px;
+      }
+
+      .input-row {
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .controls-row {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+      }
+
+      .gpu-select-container {
+        min-width: unset;
+      }
+
+      .add-task-container {
+        flex: none;
+      }
+
+      #add-task-btn {
+        width: 100%;
+        min-width: unset;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="main-wrapper">
+    <div class="left-panel">
+      <div class="gpu-section">
+        <h2>🚀 NVIDIA GPU Monitor</h2>
+        <div class="gpu-container" id="gpu-list"></div>
+      </div>
+
+      <div class="process-section">
+        <h2>🧠 Running GPU Processes</h2>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>GPU</th><th>PID</th><th>Type</th><th>Name</th><th>Memory Usage</th>
+              </tr>
+            </thead>
+            <tbody id="proc-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="disk-section">
+        <h2>💿 Disk Usage</h2>
+        <div id="disk-list"></div>
+      </div>
+      
+      <div class="task-queue-section">
+        <h2>📋 Task Queue</h2>
+        <div class="task-input-section">
+          <div class="input-row">
+            <div class="command-input-container">
+              <label for="command-input">Command:</label>
+              <div class="command-input-wrapper">
+                <div class="line-numbers" id="line-numbers">1</div>
+                <textarea id="command-input" placeholder="Enter your command here..." rows="2"></textarea>
+              </div>
+            </div>
+            <div class="controls-row">
+              <div class="gpu-select-container">
+                <div class="custom-select" id="gpu-select-wrapper">
+                  <div class="select-display" id="gpu-select-display">
+                    <span class="selected-text">Select GPUs...</span>
+                    <span class="dropdown-arrow">▼</span>
+                  </div>
+                  <div class="select-options" id="gpu-select-options">
+                    <!-- GPU 選項將由 JavaScript 動態生成 -->
+                  </div>
+                </div>
+              </div>
+              <div class="add-task-container">
+                <button id="add-task-btn">Add Task</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="task-queue-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function parseSize(sizeStr) {
+      const units = { 'K': 1024, 'M': 1024**2, 'G': 1024**3, 'T': 1024**4 };
+      const match = sizeStr.match(/^(\d+(?:\.\d+)?)\s*([KMGT]?)$/i);
+      if (!match) return 0;
+      const [, value, unit] = match;
+      return parseFloat(value) * (units[unit.toUpperCase()] || 1);
+    }
+
+    async function refreshDiskData() {
+      try {
+        const res = await fetch('/disk_data');
+        const json = await res.json();
+        
+        const diskList = document.getElementById('disk-list');
+        diskList.innerHTML = '';
+
+        // 按總容量排序（從大到小）
+        const sortedDisks = json.disks.sort((a, b) => parseSize(b.size) - parseSize(a.size));
+
+        for (const disk of sortedDisks) {
+          const percentage = disk.use_percent;
+          let fillClass = 'low';
+          if (percentage > 80) fillClass = 'high';
+          else if (percentage > 60) fillClass = 'medium';
+
+          const diskCard = document.createElement('div');
+          diskCard.className = 'disk-card';
+          
+          diskCard.innerHTML = `
+            <div class="disk-header">
+              <div class="disk-name">${disk.mounted_on}</div>
+              <div class="disk-percentage">${percentage}%</div>
+            </div>
+            <div class="disk-bar">
+              <div class="disk-fill ${fillClass}" style="width: ${percentage}%"></div>
+            </div>
+            <div class="disk-info">
+              <span>${disk.used} / ${disk.size}</span>
+              <span>Free: ${disk.available}</span>
+            </div>
+          `;
+          
+          diskList.appendChild(diskCard);
+        }
+      } catch (err) {
+        console.error("Error fetching disk data:", err);
+      }
+    }
+
+    async function refresh() {
+      try {
+        const res = await fetch('/gpu_data');
+        const json = await res.json();
+
+        const list = document.getElementById('gpu-list');
+        list.innerHTML = '';
+
+        // 更新 GPU 選擇選單
+        updateGPUSelect(Object.keys(json.gpus));
+
+        for (const [id, gpu] of Object.entries(json.gpus)) {
+          const util = gpu.util ?? 0;
+          const memUsed = gpu.mem_used ?? '?';
+          const memTotal = gpu.mem_total ?? '?';
+          const memPercent = gpu.mem_percent ?? 0;
+          const inUse = gpu.in_use ?? false;
+
+          const card = document.createElement('div');
+          card.className = 'gpu-card ' + (inUse ? 'used' : 'idle');
+
+          card.innerHTML = `
+            <div class="gpu-row">
+              <div class="gpu-title">GPU ${id}</div>
+              <div class="bar-group">
+                <div class="bar-container">
+                  <div class="bar util-bar" style="width: ${util}%">
+                    <span class="bar-text">Util: ${util}%</span>
+                  </div>
+                  <span class="bar-icon-wrapper">🚀</span>
+                </div>
+                <div class="bar-container">
+                  <div class="bar mem-bar" style="width: ${memPercent}%">
+                    <span class="bar-text">VRAM: ${memUsed} / ${memTotal} MiB (${memPercent}%)</span>
+                  </div>
+                  <span class="bar-icon-wrapper">💾</span>
+                </div>
+              </div>
+            </div>
+          `;
+          list.appendChild(card);
+        }
+
+        const procTable = document.getElementById('proc-table');
+        procTable.innerHTML = '';
+        for (const proc of json.processes) {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${proc.gpu}</td>
+            <td>${proc.pid}</td>
+            <td>${proc.type}</td>
+            <td>${proc.name}</td>
+            <td>${proc.mem}</td>
+          `;
+          procTable.appendChild(row);
+        }
+
+        // 動態調整表格容器高度
+        const tableContainer = document.querySelector('.table-container');
+        const processCount = json.processes.length;
+        
+        if (processCount <= 5) {
+          // 內容較少時保持滾動容器但調整高度使其不需要滾動
+          const tableHeight = (processCount + 1) * 45 + 20; // 每行約45px + 標題 + padding
+          tableContainer.style.overflowY = 'hidden';
+          tableContainer.style.maxHeight = `${tableHeight}px`;
+          tableContainer.style.height = 'auto';
+        } else {
+          // 內容較多時啟用滾動
+          tableContainer.style.overflowY = 'auto';
+          tableContainer.style.maxHeight = '400px';
+          tableContainer.style.height = 'auto';
+        }
+      } catch (err) {
+        console.error("Error fetching GPU data:", err);
+      }
+    }
+
+    refresh();
+    refreshDiskData();
+    setInterval(refresh, 5000);
+    setInterval(refreshDiskData, 10000);
+
+    // 自定義下拉選單功能
+    function updateGPUSelect(availableGPUs) {
+      const optionsContainer = document.getElementById('gpu-select-options');
+      const currentSelected = getSelectedGPUs();
+      
+      // 清空現有選項
+      optionsContainer.innerHTML = '';
+      
+      // 添加可用的 GPU 選項
+      availableGPUs.forEach(gpuId => {
+        const optionDiv = document.createElement('div');
+        optionDiv.className = 'option';
+        optionDiv.setAttribute('data-value', gpuId);
+        
+        const isSelected = currentSelected.includes(gpuId);
+        
+        // 如果被選中，添加 selected 類別
+        if (isSelected) {
+          optionDiv.classList.add('selected');
+        }
+        
+        optionDiv.innerHTML = `
+          <input type="checkbox" id="gpu-${gpuId}" value="${gpuId}" ${isSelected ? 'checked' : ''}>
+          <label for="gpu-${gpuId}">GPU ${gpuId}</label>
+        `;
+        
+        optionsContainer.appendChild(optionDiv);
+      });
+      
+      // 每次更新選項後都重新綁定事件
+      bindSelectEvents();
+      updateSelectedDisplay();
+    }
+
+    function getSelectedGPUs() {
+      const checkboxes = document.querySelectorAll('#gpu-select-options input[type="checkbox"]:checked');
+      return Array.from(checkboxes).map(cb => cb.value);
+    }
+
+    function updateSelectedDisplay() {
+      const selectedGPUs = getSelectedGPUs();
+      const displayText = document.querySelector('.selected-text');
+      
+      // 取得所有可用的 GPU 選項
+      const allOptions = document.querySelectorAll('#gpu-select-options .option');
+      const totalGPUs = allOptions.length;
+      
+      if (selectedGPUs.length === 0) {
+        displayText.textContent = 'Select GPUs...';
+        displayText.classList.add('placeholder');
+      } else if (selectedGPUs.length === totalGPUs && totalGPUs > 0) {
+        // 如果選擇了所有可用的 GPU，顯示 "ALL"
+        displayText.textContent = 'ALL';
+        displayText.classList.remove('placeholder');
+      } else {
+        displayText.textContent = selectedGPUs.join(', ');
+        displayText.classList.remove('placeholder');
+      }
+    }
+
+    function bindSelectEvents() {
+      const selectDisplay = document.getElementById('gpu-select-display');
+      const selectOptions = document.getElementById('gpu-select-options');
+
+      // 移除舊的事件監聽器
+      const newSelectOptions = selectOptions.cloneNode(true);
+      selectOptions.parentNode.replaceChild(newSelectOptions, selectOptions);
+
+      // 點擊顯示區域切換下拉選單
+      selectDisplay.onclick = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const isOpen = newSelectOptions.classList.contains('open');
+        
+        if (isOpen) {
+          closeSelect();
+        } else {
+          openSelect();
+        }
+      };
+
+      // 點擊選項時更新選擇
+      newSelectOptions.onclick = function(e) {
+        e.stopPropagation();
+        
+        // 如果點擊的是選項區域，切換對應的 checkbox
+        const option = e.target.closest('.option');
+        if (option) {
+          const checkbox = option.querySelector('input[type="checkbox"]');
+          if (checkbox) {
+            checkbox.checked = !checkbox.checked;
+            
+            // 更新視覺狀態
+            if (checkbox.checked) {
+              option.classList.add('selected');
+            } else {
+              option.classList.remove('selected');
+            }
+            
+            updateSelectedDisplay();
+          }
+        }
+      };
+
+      // 點擊外部關閉下拉選單
+      document.onclick = function(e) {
+        if (!document.getElementById('gpu-select-wrapper').contains(e.target)) {
+          closeSelect();
+        }
+      };
+
+      function openSelect() {
+        document.getElementById('gpu-select-options').classList.add('open');
+        selectDisplay.classList.add('active');
+        document.querySelector('.dropdown-arrow').classList.add('rotated');
+      }
+
+      function closeSelect() {
+        document.getElementById('gpu-select-options').classList.remove('open');
+        selectDisplay.classList.remove('active');
+        document.querySelector('.dropdown-arrow').classList.remove('rotated');
+      }
+    }
+
+    // 初始化自定義下拉選單
+    bindSelectEvents();
+    updateSelectedDisplay();
+
+    // 行號功能
+    function updateLineNumbers() {
+      const textarea = document.getElementById('command-input');
+      const lineNumbers = document.getElementById('line-numbers');
+      const lines = textarea.value.split('\n');
+      const lineCount = Math.max(1, lines.length); // 最少顯示 1 行
+      
+      let numbersText = '';
+      for (let i = 1; i <= lineCount; i++) {
+        numbersText += i + (i < lineCount ? '\n' : '');
+      }
+      lineNumbers.textContent = numbersText;
+      
+      // 根據行數計算高度（而不是根據內容長度）
+      const lineHeight = 20; // 每行高度
+      const padding = 16; // 上下 padding (8px * 2)
+      const minLines = 2; // 最少顯示行數
+      const maxLines = 15; // 最多顯示行數
+      
+      const displayLines = Math.min(maxLines, Math.max(minLines, lineCount));
+      const newHeight = displayLines * lineHeight + padding;
+      
+      textarea.style.height = newHeight + 'px';
+      
+      // 同步行號區域高度
+      lineNumbers.style.height = newHeight + 'px';
+      
+      // 如果行數超過最大顯示行數，啟用捲動
+      if (lineCount > maxLines) {
+        textarea.style.overflowY = 'auto';
+      } else {
+        textarea.style.overflowY = 'hidden';
+      }
+      
+      // 同步捲動
+      lineNumbers.scrollTop = textarea.scrollTop;
+    }
+
+    // 綁定行號更新事件
+    const commandInput = document.getElementById('command-input');
+    commandInput.addEventListener('input', updateLineNumbers);
+    commandInput.addEventListener('scroll', function() {
+      document.getElementById('line-numbers').scrollTop = this.scrollTop;
+    });
+    
+    // 初始化行號
+    updateLineNumbers();
+
+    // 添加任務按鈕事件監聽器
+    document.getElementById('add-task-btn').addEventListener('click', async function() {
+      const command = document.getElementById('command-input').value.trim();
+      const selectedGPUs = getSelectedGPUs();
+      
+      if (!command) {
+        alert('Please enter a command');
+        return;
+      }
+      
+      if (selectedGPUs.length === 0) {
+        alert('Please select at least one GPU');
+        return;
+      }
+      
+      try {
+        const response = await fetch('/commands', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            command: command,
+            required_gpu: selectedGPUs.join(', ')
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          // 清空輸入
+          document.getElementById('command-input').value = '';
+          
+          // 更新行號顯示
+          updateLineNumbers();
+          
+          // 清空 GPU 選擇
+          const checkboxes = document.querySelectorAll('#gpu-select-options input[type="checkbox"]');
+          checkboxes.forEach(cb => {
+            cb.checked = false;
+            // 移除對應選項的 selected 類別
+            const option = cb.closest('.option');
+            if (option) {
+              option.classList.remove('selected');
+            }
+          });
+          updateSelectedDisplay();
+          
+          // 刷新命令列表
+          refreshCommandList();
+        } else {
+          alert('Error adding command: ' + result.error);
+        }
+      } catch (error) {
+        console.error('Error adding command:', error);
+        alert('Error adding command: ' + error.message);
+      }
+    });
+
+    // 刷新命令列表函數
+    async function refreshCommandList() {
+      try {
+        const response = await fetch('/commands');
+        const result = await response.json();
+        
+        if (result.success) {
+          displayCommands(result.commands);
+        } else {
+          console.error('Error fetching commands:', result.error);
+        }
+      } catch (error) {
+        console.error('Error fetching commands:', error);
+      }
+    }
+
+    // 顯示命令列表函數
+    function displayCommands(commands) {
+      const taskQueueList = document.getElementById('task-queue-list');
+      
+      if (commands.length === 0) {
+        taskQueueList.innerHTML = '<div style="text-align: center; color: #888; margin-top: 20px;">No commands in queue</div>';
+        return;
+      }
+      
+      // 確保按照 order 排序
+      const sortedCommands = commands.sort((a, b) => a.order - b.order);
+      
+      taskQueueList.innerHTML = sortedCommands.map((cmd, displayIndex) => {
+        // 處理命令文本，分割成行並生成行號
+        const commandLines = cmd.command.split('\n');
+        const lineNumbers = commandLines.map((_, index) => index + 1).join('\n');
+        const commandText = commandLines.join('\n');
+        
+        return `
+        <div class="task-item" data-command-id="${cmd.id}">
+          <div class="task-content">
+            <div class="task-order">#${cmd.order}</div>
+            <div class="task-details">
+              <div class="task-command">
+                <div class="task-command-content">
+                  <div class="task-command-lines">${lineNumbers}</div>
+                  <div class="task-command-text">${escapeHtml(commandText)}</div>
+                </div>
+              </div>
+              <div class="task-gpu">GPU: ${escapeHtml(cmd.required_gpu)}</div>
+              <div class="task-time">Created: ${new Date(cmd.created_at).toLocaleString()}</div>
+            </div>
+            <div class="task-actions">
+              <button class="move-up-btn" onclick="moveCommand(${cmd.id}, ${cmd.order - 1})" ${cmd.order === 1 ? 'disabled' : ''}>↑</button>
+              <button class="move-down-btn" onclick="moveCommand(${cmd.id}, ${cmd.order + 1})" ${cmd.order === sortedCommands.length ? 'disabled' : ''}>↓</button>
+              <button class="delete-btn" onclick="deleteCommand(${cmd.id})">🗑️</button>
+            </div>
+          </div>
+        </div>
+        `;
+      }).join('');
+    }
+
+    // HTML轉義函數
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // 刪除命令函數
+    async function deleteCommand(commandId) {
+      if (!confirm('Are you sure you want to delete this command?')) {
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/commands/${commandId}`, {
+          method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          refreshCommandList();
+        } else {
+          alert('Error deleting command: ' + result.error);
+        }
+      } catch (error) {
+        console.error('Error deleting command:', error);
+        alert('Error deleting command: ' + error.message);
+      }
+    }
+
+    // 移動命令函數
+    async function moveCommand(commandId, newOrder) {
+      try {
+        const response = await fetch(`/commands/${commandId}/order`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            new_order: newOrder
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          refreshCommandList();
+        } else {
+          alert('Error moving command: ' + result.error);
+        }
+      } catch (error) {
+        console.error('Error moving command:', error);
+        alert('Error moving command: ' + error.message);
+      }
+    }
+
+    // 頁面載入時刷新命令列表
+    refreshCommandList();
+  </script>
+</body>
+</html>
