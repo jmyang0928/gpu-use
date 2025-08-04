@@ -166,6 +166,7 @@ cython_debug/
 *.log
 gpu_monitor.log
 gpu_commands.json
+task_executions/
 
 # Temporary files
 *.tmp

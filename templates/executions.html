@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>📋 Task Execution History</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      background: #f0f2f5;
+      padding: 20px;
+      color: #333;
+    }
+
+    .header {
+      max-width: 95%;
+      margin: 0 auto 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      margin: 0;
+      color: #0057a3;
+      font-size: 28px;
+    }
+
+    .back-button {
+      background: #0057a3;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 14px;
+      transition: background-color 0.3s;
+    }
+
+    .back-button:hover {
+      background: #004080;
+    }
+
+    .main-container {
+      max-width: 95%;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1);
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .stats-bar {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 25px;
+      padding: 15px;
+      background: rgba(0, 87, 163, 0.1);
+      border-radius: 8px;
+      border-left: 4px solid #0057a3;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-number {
+      font-size: 24px;
+      font-weight: bold;
+      color: #0057a3;
+      display: block;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #666;
+      margin-top: 5px;
+    }
+
+    .filters {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .filter-group label {
+      font-size: 12px;
+      color: #666;
+      font-weight: 500;
+    }
+
+    .filter-input {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .executions-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    .executions-table th,
+    .executions-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+
+    .executions-table th {
+      background: rgba(0, 87, 163, 0.1);
+      font-weight: 600;
+      color: #0057a3;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .executions-table tr:hover {
+      background: rgba(0, 87, 163, 0.05);
+    }
+
+    .execution-row {
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .execution-row:hover {
+      background: rgba(0, 87, 163, 0.1);
+    }
+
+    .task-uid {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #666;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .command-preview {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #333;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      background: rgba(0, 87, 163, 0.05);
+      padding: 4px 8px;
+      border-radius: 3px;
+    }
+
+    .gpu-badge {
+      background: #0057a3;
+      color: white;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .status-badge {
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .status-completed {
+      background: #28a745;
+      color: white;
+    }
+
+    .status-running {
+      background: #ffc107;
+      color: #333;
+    }
+
+    .status-error {
+      background: #dc3545;
+      color: white;
+    }
+
+    .status-unknown {
+      background: #6c757d;
+      color: white;
+    }
+
+    .output-size {
+      font-size: 11px;
+      color: #666;
+    }
+
+    .execution-time {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    .no-data {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+
+    .refresh-button {
+      background: #28a745;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      margin-left: auto;
+    }
+
+    .refresh-button:hover {
+      background: #218838;
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin-top: 20px;
+      padding: 15px;
+    }
+
+    .pagination button {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      background: white;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    .pagination button:hover {
+      background: #f8f9fa;
+    }
+
+    .pagination button:disabled {
+      background: #f8f9fa;
+      color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .pagination .current-page {
+      background: #0057a3;
+      color: white;
+      border-color: #0057a3;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📋 Task Execution History</h1>
+    <a href="/" class="back-button">← Back to Monitor</a>
+  </div>
+
+  <div class="main-container">
+    <div class="stats-bar">
+      <div class="stat-item">
+        <span class="stat-number" id="total-executions">-</span>
+        <div class="stat-label">Total Executions</div>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number" id="completed-executions">-</span>
+        <div class="stat-label">Completed</div>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number" id="total-output-size">-</span>
+        <div class="stat-label">Total Output Size</div>
+      </div>
+    </div>
+
+    <div class="filters">
+      <div class="filter-group">
+        <label>Search Command</label>
+        <input type="text" class="filter-input" id="search-command" placeholder="Filter by command...">
+      </div>
+      <div class="filter-group">
+        <label>GPU Filter</label>
+        <select class="filter-input" id="filter-gpu">
+          <option value="">All GPUs</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Date Range</label>
+        <input type="date" class="filter-input" id="date-from">
+      </div>
+      <div class="filter-group">
+        <label>&nbsp;</label>
+        <input type="date" class="filter-input" id="date-to">
+      </div>
+      <button class="refresh-button" onclick="loadExecutions()">🔄 Refresh</button>
+    </div>
+
+    <div id="executions-content">
+      <div class="loading">Loading execution history...</div>
+    </div>
+
+    <div class="pagination" id="pagination" style="display: none;">
+      <button id="prev-page" onclick="changePage(-1)">← Previous</button>
+      <span id="page-info">Page 1 of 1</span>
+      <button id="next-page" onclick="changePage(1)">Next →</button>
+    </div>
+  </div>
+
+  <script>
+    let executions = [];
+    let filteredExecutions = [];
+    let executionTimers = {};
+    let currentPage = 1;
+    const pageSize = 20;
+
+    async function loadExecutions() {
+      try {
+        const response = await fetch('/api/executions');  // 修正 API 路徑
+        const data = await response.json();
+        
+        if (data.success) {
+          executions = data.executions;
+          updateStats();
+          updateGPUFilter();
+          applyFilters();
+        } else {
+          document.getElementById('executions-content').innerHTML = 
+            '<div class="no-data">Failed to load execution history: ' + (data.error || 'Unknown error') + '</div>';
+        }
+      } catch (error) {
+        console.error('Error loading executions:', error);
+        document.getElementById('executions-content').innerHTML = 
+          '<div class="no-data">Error loading execution history: ' + error.message + '</div>';
+      }
+    }
+
+    function getExecutionStatus(execution) {
+      if (execution.has_error_log) {
+        return { text: 'Failed', class: 'status-error' };
+      }
+      
+      const output = execution.output_preview || '';
+      const completedMatch = output.match(/Task completed at: .*/);
+      const exitCodeMatch = output.match(/Exit code: (\d+)/);
+
+      if (completedMatch) {
+        if (exitCodeMatch && parseInt(exitCodeMatch[1], 10) === 0) {
+          return { text: 'Completed', class: 'status-completed' };
+        } else {
+          return { text: 'Failed', class: 'status-error' };
+        }
+      }
+
+      if (execution.output_size > 0) {
+        return { text: 'Running', class: 'status-running' };
+      }
+      
+      return { text: 'Queued', class: 'status-unknown' };
+    }
+
+    function updateStats() {
+      const totalExecutions = executions.length;
+      
+      // 使用 getExecutionStatus 來正確判斷已完成的任務
+      const completedExecutions = executions.filter(execution => {
+        const status = getExecutionStatus(execution);
+        // 完成狀態包括：Completed 和 Failed（兩者都是已執行完畢的狀態）
+        return status.class === 'status-completed' || status.class === 'status-error';
+      }).length;
+      
+      const totalOutputSize = executions.reduce((sum, e) => sum + e.output_size, 0);
+
+      document.getElementById('total-executions').textContent = totalExecutions;
+      document.getElementById('completed-executions').textContent = completedExecutions;
+      document.getElementById('total-output-size').textContent = formatBytes(totalOutputSize);
+    }
+
+    function updateGPUFilter() {
+      const gpuSelect = document.getElementById('filter-gpu');
+      const gpus = new Set();
+      
+      executions.forEach(execution => {
+        if (execution.command_file.includes('Actual GPU IDs:')) {
+          const match = execution.command_file.match(/Actual GPU IDs: (.+)/);
+          if (match) {
+            gpus.add(match[1].trim());
+          }
+        }
+      });
+
+      // Clear existing options except "All GPUs"
+      while (gpuSelect.children.length > 1) {
+        gpuSelect.removeChild(gpuSelect.lastChild);
+      }
+
+      // Add GPU options
+      Array.from(gpus).sort().forEach(gpu => {
+        const option = document.createElement('option');
+        option.value = gpu;
+        option.textContent = `GPU ${gpu}`;
+        gpuSelect.appendChild(option);
+      });
+    }
+
+    function applyFilters() {
+      const searchTerm = document.getElementById('search-command').value.toLowerCase();
+      const gpuFilter = document.getElementById('filter-gpu').value;
+      const dateFrom = document.getElementById('date-from').value;
+      const dateTo = document.getElementById('date-to').value;
+
+      filteredExecutions = executions.filter(execution => {
+        // Command search
+        if (searchTerm && !execution.command_file.toLowerCase().includes(searchTerm)) {
+          return false;
+        }
+
+        // GPU filter
+        if (gpuFilter && !execution.command_file.includes(`Actual GPU IDs: ${gpuFilter}`)) {
+          return false;
+        }
+
+        // Date filter
+        const executionDate = new Date(execution.created_time * 1000);
+        if (dateFrom && executionDate < new Date(dateFrom)) {
+          return false;
+        }
+        if (dateTo && executionDate > new Date(dateTo + 'T23:59:59')) {
+          return false;
+        }
+
+        return true;
+      });
+
+      currentPage = 1;
+      renderExecutions();
+    }
+
+    function renderExecutions() {
+      const startIndex = (currentPage - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const pageExecutions = filteredExecutions.slice(startIndex, endIndex);
+
+      if (pageExecutions.length === 0) {
+        document.getElementById('executions-content').innerHTML = 
+          '<div class="no-data">No executions found matching your filters</div>';
+        document.getElementById('pagination').style.display = 'none';
+        return;
+      }
+
+      const tableHTML = `
+        <table class="executions-table">
+          <thead>
+            <tr>
+              <th>Execution Time</th>
+              <th>Task UID</th>
+              <th>Command Preview</th>
+              <th>GPU</th>
+              <th>Status</th>
+              <th>Output Size</th>
+              <th>Directory</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${pageExecutions.map(execution => {
+              const executionTime = new Date(execution.created_time * 1000);
+              const taskUid = extractTaskUID(execution.command_file);
+              const commandPreview = extractCommand(execution.command_file);
+              const gpu = extractGPU(execution.command_file);
+              const status = getExecutionStatus(execution);
+              
+              return `
+                <tr class="execution-row" onclick="viewExecution('${execution.directory}')">
+                  <td class="execution-time">${executionTime.toLocaleString()}</td>
+                  <td class="task-uid">${taskUid}</td>
+                  <td class="command-preview">${commandPreview}</td>
+                  <td><span class="gpu-badge">${gpu}</span></td>
+                  <td><span class="status-badge ${status.class}">${status.text}</span></td>
+                  <td class="output-size">${formatBytes(execution.output_size)}</td>
+                  <td style="font-size: 11px; color: #999;">${execution.directory}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      `;
+
+      document.getElementById('executions-content').innerHTML = tableHTML;
+      updateExecutionTimers();
+
+      // Update pagination
+      const totalPages = Math.ceil(filteredExecutions.length / pageSize);
+      document.getElementById('page-info').textContent = `Page ${currentPage} of ${totalPages}`;
+      document.getElementById('prev-page').disabled = currentPage === 1;
+      document.getElementById('next-page').disabled = currentPage === totalPages;
+      document.getElementById('pagination').style.display = totalPages > 1 ? 'flex' : 'none';
+    }
+
+    function updateExecutionTimers() {
+      const renderedRows = document.querySelectorAll('.execution-row');
+      const visibleDirectories = new Set();
+
+      renderedRows.forEach(row => {
+        const directory = row.getAttribute('onclick').match(/'([^']+)'/)[1];
+        visibleDirectories.add(directory);
+        const statusCell = row.querySelector('.status-badge');
+        
+        if (statusCell.classList.contains('status-running')) {
+          const execution = filteredExecutions.find(exec => exec.directory === directory);
+          if (execution && !executionTimers[directory]) {
+            // Start a new timer
+            const startTime = execution.created_time * 1000;
+            executionTimers[directory] = setInterval(() => {
+              const now = new Date().getTime();
+              const duration = now - startTime;
+              const hours = Math.floor(duration / (1000 * 60 * 60));
+              const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
+              const seconds = Math.floor((duration % (1000 * 60)) / 1000);
+              statusCell.textContent = `Running for ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }, 1000);
+          }
+        }
+      });
+
+      // Clear timers for executions that are no longer visible or running
+      for (const directory in executionTimers) {
+        const execution = filteredExecutions.find(exec => exec.directory === directory);
+        const status = execution ? getExecutionStatus(execution) : null;
+        if (!visibleDirectories.has(directory) || status.class !== 'status-running') {
+          clearInterval(executionTimers[directory]);
+          delete executionTimers[directory];
+        }
+      }
+    }
+
+    function changePage(direction) {
+      const totalPages = Math.ceil(filteredExecutions.length / pageSize);
+      const newPage = currentPage + direction;
+      
+      if (newPage >= 1 && newPage <= totalPages) {
+        currentPage = newPage;
+        renderExecutions();
+      }
+    }
+
+    function extractTaskUID(commandFile) {
+      const match = commandFile.match(/Task UID: (.+)/);
+      return match ? match[1].substring(0, 8) + '...' : 'Unknown';
+    }
+
+    function extractCommand(commandFile) {
+      const lines = commandFile.split('\n');
+      const commandIndex = lines.findIndex(line => line.includes('=== Command to Execute ==='));
+      if (commandIndex !== -1 && commandIndex + 1 < lines.length) {
+        return lines[commandIndex + 1].trim();
+      }
+      return 'Unknown';
+    }
+
+    function extractGPU(commandFile) {
+      const match = commandFile.match(/Actual GPU IDs: (.+)/);
+      return match ? match[1].trim() : 'N/A';
+    }
+
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    function viewExecution(directory) {
+      window.location.href = `/execution/${directory}`;
+    }
+
+    // Event listeners
+    document.getElementById('search-command').addEventListener('input', applyFilters);
+    document.getElementById('filter-gpu').addEventListener('change', applyFilters);
+    document.getElementById('date-from').addEventListener('change', applyFilters);
+    document.getElementById('date-to').addEventListener('change', applyFilters);
+
+    // Auto-refresh
+    setInterval(loadExecutions, 10000); // Refresh every 10 seconds
+
+    // Initial load
+    loadExecutions();
+  </script>
+</body>
+</html>
